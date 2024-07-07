@@ -1,23 +1,3 @@
-################################################################################
-#
-#  Permission is hereby granted, free of charge, to any person obtaining a
-#  copy of this software and associated documentation files (the "Software"),
-#  to deal in the Software without restriction, including without limitation
-#  the rights to use, copy, modify, merge, publish, distribute, sublicense,
-#  and/or sell copies of the Software, and to permit persons to whom the
-#  Software is furnished to do so, subject to the following conditions:
-#
-#  The above copyright notice and this permission notice shall be included in
-#  all copies or substantial portions of the Software.
-#
-#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-#  OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-#  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-#  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-#  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-#  DEALINGS IN THE SOFTWARE.
-
 import csv
 # from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 import http.server
@@ -148,12 +128,13 @@ def order_book(orders, book, stock_name):
 
 def generate_csv():
     """ Generate a CSV of order history. """
-    with open('test.csv', 'wb') as f:
+    with open('test.csv', 'w', newline='') as f:
         writer = csv.writer(f)
         for t, stock, side, order, size in orders(market()):
             if t > MARKET_OPEN + SIM_LENGTH:
                 break
             writer.writerow([t, stock, side, order, size])
+    print("CSV file generated successfully.")
 
 
 def read_csv():
@@ -257,11 +238,18 @@ class App(object):
     def __init__(self):
         self._book_1 = dict()
         self._book_2 = dict()
-        self._data_1 = order_book(read_csv(), self._book_1, 'ABC')
-        self._data_2 = order_book(read_csv(), self._book_2, 'DEF')
-        self._rt_start = datetime.now()
-        self._sim_start, _, _ = next(self._data_1)
-        self.read_10_first_lines()
+        try:
+            self._data_1 = order_book(read_csv(), self._book_1, 'ABC')
+            self._data_2 = order_book(read_csv(), self._book_2, 'DEF')
+            self._rt_start = datetime.now()
+            self._sim_start, _, _ = next(self._data_1)
+            self.read_10_first_lines()
+        except StopIteration:
+            print("No data found in CSV. Generating new data...")
+            generate_csv()
+            self.__init__()
+        except Exception as e:
+            print(f"An error occurred during initialization: {e}")
 
     @property
     def _current_book_1(self):
@@ -295,7 +283,7 @@ class App(object):
             t1, bids1, asks1 = next(self._current_book_1)
             t2, bids2, asks2 = next(self._current_book_2)
         except Exception as e:
-            print("error getting stocks...reinitalizing app")
+            print("Error getting stocks...reinitializing app")
             self.__init__()
             t1, bids1, asks1 = next(self._current_book_1)
             t2, bids2, asks2 = next(self._current_book_2)
